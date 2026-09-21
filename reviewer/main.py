@@ -18,7 +18,6 @@ def get_pr_diff():
         }
     )
     response.raise_for_status()
-    print(response.text)
     return response.text
 
 def build_prompt(diff):
@@ -32,7 +31,6 @@ def call_llm(prompt):
         model="gemini-3.6-flash",
         input=prompt
     )
-    print(interaction.output_text)
     return interaction.output_text
 
 def post_comment(comment):
@@ -46,7 +44,6 @@ def post_comment(comment):
         json={"body": comment}
     )
     response.raise_for_status()
-    print(response)
 
 if __name__ == "__main__":
     diff = get_pr_diff()
