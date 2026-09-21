@@ -5,7 +5,7 @@ from google import genai
 
 repo_full = os.environ.get("GITHUB_REPOSITORY", "hachu04/code-reviewer")
 owner, repo = repo_full.split("/")
-pr_number = os.environ.get("GITHUB_REF", "refs/pull/1/merge").split("/")[2]
+pr_number = os.environ["PR_NUMBER"]
 token = os.environ["GITHUB_TOKEN"]
 
 def get_pr_diff():
