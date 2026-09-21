@@ -11,13 +11,13 @@ token = os.environ["GITHUB_TOKEN"]
 def get_pr_diff():
     response = requests.get(
         f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github.v3.diff"
+        }
     )
-    data = response.json()
-    pr_diff = requests.get(
-        data['diff_url']
-    )
-    return pr_diff.text
+    print(response.text)
+    return response.text
 
 def build_prompt(diff):
     prompt = f"You are a professional code reviewer, and your task is to look at pull request diff and check if there is any problem. Here is the diff: {diff}. I want you to return a structured list of problems: problem title, a brief description, where it occured, possible solution"
@@ -31,14 +31,15 @@ def call_llm(prompt):
         input=prompt
     )
     print(interaction.output_text)
+    return interaction.output_text
 
 def post_comment(comment):
-    respond =requests.post(
+    response = requests.post(
         f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments",
         headers={"Authorization": f"Bearer {token}"},
         json={"body": comment}
     )
-    return respond
+    print(response)
 
 if __name__ == "__main__":
     diff = get_pr_diff()
