@@ -3,9 +3,9 @@ import os
 import requests
 from google import genai
 
-owner = "actions"
-repo = "starter-workflows"  
-pr_number = "3453"
+owner = "hachu04"
+repo = "code-reviewer"  
+pr_number = "1"
 token = os.environ["GITHUB_TOKEN"]
 
 def get_pr_diff():
@@ -33,7 +33,12 @@ def call_llm(prompt):
     print(interaction.output_text)
 
 def post_comment(comment):
-    pass
+    respond =requests.post(
+        f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"body": comment}
+    )
+    return respond
 
 if __name__ == "__main__":
     diff = get_pr_diff()
