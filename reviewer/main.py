@@ -55,7 +55,9 @@ def get_context(diff):
             start_line = context[filepath][function]['start_point']
             end_line = context[filepath][function]['end_point']
         
-            with open(filepath, "r") as f:
+            if not os.path.exists(filepath):
+                continue
+            with open(filepath, "r", encoding="utf-8") as f:
                 file_lines = f.readlines()
             
             source = "".join(file_lines[start_line:end_line + 1])

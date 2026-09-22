@@ -42,7 +42,7 @@ def build_file_context(filepath):
     return find_functions(tree.root_node)
 
 def build_repo_context(root_path=""):
-    files = glob.glob("**/*.py", recursive=True)
+    files = glob.glob(os.path.join(root_path, "**/*.py"), recursive=True)
     
     repo_context = {}
     
@@ -50,8 +50,6 @@ def build_repo_context(root_path=""):
         repo_context[file] = build_file_context(file)
         
     return repo_context
-
-print(build_repo_context())
 
 context = build_repo_context()
 with open("repo_context.json", "w") as f:
