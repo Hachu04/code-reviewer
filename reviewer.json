@@ -1,6 +1,6 @@
 {
   "llm": {
     "base_url": "https://integrate.api.nvidia.com/v1",
-    "model": "meta/llama-3.1-70b-instruct"
+    "model": "nvidia/nemotron-3-super-120b-a12b"
   }
 }
