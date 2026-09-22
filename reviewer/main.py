@@ -52,6 +52,13 @@ def get_context(diff):
         if function not in reverse_index:
             continue
         for filepath in reverse_index[function]:
+            # find the qualified key that matches this plain name
+            qualified_key = next(
+                (k for k in context[filepath] if k.split(':')[0] == function),
+                None
+            )
+            if qualified_key is None:
+                continue
             start_line = context[filepath][function]['start_point']
             end_line = context[filepath][function]['end_point']
         
