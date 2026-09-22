@@ -29,7 +29,6 @@ def get_context(diff):
     for line in lines:
         if (line.startswith('+') and not line.startswith('+++')) or \
         (line.startswith('-') and not line.startswith('---')):
-            line = line.lstrip('+-').strip()
             match = re.search(r'^[+-]\s*def\s+([a-zA-Z_]\w*)\s*\(', line)
             if match:
                 function = match.group(1)
@@ -41,11 +40,12 @@ def get_context(diff):
     reverse_index = {}
     
     for filepath, functions in context.items():
-        for function_name in functions:
-            if function_name not in reverse_index:
-                reverse_index[function_name] = []
-            reverse_index[function_name].append(filepath)
-    
+        for qualified_name in functions:
+            plain_name = qualified_name.split(':')[0]
+            if plain_name not in reverse_index:
+                reverse_index[plain_name] = []
+            reverse_index[plain_name].append(filepath)
+            
     function_sources = {}
     
     for function in changed_functions:

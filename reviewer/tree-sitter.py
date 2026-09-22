@@ -16,10 +16,12 @@ def find_functions(node, functions=None):
         name_node = node.child_by_field_name('name')
         if name_node is not None:
             name = name_node.text.decode('utf8')
-            functions[name] = {}
-            functions[name]["calls"] = find_calls_in_function(node, [])
-            functions[name]["start_point"] = node.start_point[0]
-            functions[name]["end_point"] = node.end_point[0]
+            qualified_name = f"{name}:{node.start_point[0]}"
+            functions[qualified_name] = {
+                "calls": find_calls_in_function(node),
+                "start_point": node.start_point[0],
+                "end_point": node.end_point[0]
+            }
     for child in node.children:
         find_functions(child, functions)
     return functions
