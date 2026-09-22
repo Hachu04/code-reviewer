@@ -59,8 +59,8 @@ def get_context(diff):
             )
             if qualified_key is None:
                 continue
-            start_line = context[filepath][function]['start_point']
-            end_line = context[filepath][function]['end_point']
+            start_line = context[filepath][qualified_key]['start_point']
+            end_line = context[filepath][qualified_key]['end_point']
         
             if not os.path.exists(filepath):
                 continue
@@ -71,7 +71,7 @@ def get_context(diff):
             key = f"{function}:{filepath}"
             function_sources[key] = {
                 "file": filepath,
-                "calls": context[filepath][function]["calls"],
+                "calls": context[filepath][qualified_key]["calls"],
                 "start_point": start_line,
                 "end_point": end_line,
                 "source": source
