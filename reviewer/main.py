@@ -98,12 +98,18 @@ Here is the structural context of functions changed in this PR:
 
 Return a structured list of problems using this exact markdown format for each problem:
 
+
+---
+
+### 1. Quick problem name
 * **Problem Title:** title here
 * **Where it Occurred:** file and line if known
 * **Brief Description:** description here
 * **Possible Solution:** solution here
 
-Separate each problem with a blank line. Use markdown so it renders properly as a GitHub comment."""
+---
+
+Separate each problem with a blank line and '---'. Use markdown so it renders properly as a GitHub comment."""
     
     return prompt
 
