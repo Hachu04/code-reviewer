@@ -101,19 +101,13 @@ Return a structured list of problems found: problem title, brief description, wh
     return prompt
 
 def call_llm(prompt):
-    with open("reviewer.json", "r") as f:
-        config = json.load(f)
-
-    base_url = config["llm"]["base_url"]
-    model = config["llm"]["model"]
-    
     client = OpenAI(
         api_key=os.environ["LLM_API_KEY"],
-        base_url=base_url
+        base_url=os.environ.get("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
     )
     
     response = client.chat.completions.create(
-        model=model,
+        model=os.environ.get("LLM_MODEL", "gemini-3.6-flash"),
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
