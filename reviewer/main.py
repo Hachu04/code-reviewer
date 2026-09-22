@@ -4,6 +4,7 @@ import re
 
 import requests
 from google import genai
+from openai import OpenAI
 
 repo_full = os.environ.get("GITHUB_REPOSITORY", "hachu04/code-reviewer")
 owner, repo = repo_full.split("/")
@@ -101,13 +102,24 @@ Return a structured list of problems found: problem title, brief description, wh
     return prompt
 
 def call_llm(prompt):
-    client = genai.Client()
+    # client = genai.Client()
     
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt
+    # interaction = client.interactions.create(
+    #     model="gemini-3.6-flash",
+    #     input=prompt
+    # )
+    # return interaction.output_text
+    
+    client = OpenAI(
+        api_key=os.environ["LLM_API_KEY"],
+        base_url=os.environ.get("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
     )
-    return interaction.output_text
+    
+    response = client.chat.completions.create(
+        model=os.environ.get("LLM_MODEL", "gemini-3.6-flash"),
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
 
 def post_comment(comment):
     response = requests.post(
