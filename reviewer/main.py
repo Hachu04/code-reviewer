@@ -28,7 +28,7 @@ def get_context(diff):
     for line in lines:
         if (line.startswith('+') and not line.startswith('+++')) or \
         (line.startswith('-') and not line.startswith('---')):
-            line = line.lstrip('+-')
+            line = line.lstrip('+-').strip()
             if line.startswith('def'):
                 function = line.split('def ')[1].split('(')[0]
                 changed_functions.append(function)

@@ -22,7 +22,7 @@ def find_functions(node, functions=None):
     return functions
 
 def find_calls_in_function(node, calls=None):
-    if calls == None:
+    if calls is None:
         calls = []
     if node.type == 'call':
         name_node = node.child_by_field_name('function')
