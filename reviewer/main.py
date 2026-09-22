@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 import requests
 from google import genai
@@ -29,8 +30,9 @@ def get_context(diff):
         if (line.startswith('+') and not line.startswith('+++')) or \
         (line.startswith('-') and not line.startswith('---')):
             line = line.lstrip('+-').strip()
-            if line.startswith('def'):
-                function = line.split('def ')[1].split('(')[0]
+            match = re.search(r'^\s*def\s+([a-zA-Z_]\w*)\s*\(', line)
+            if match:
+                function = match.group(1)
                 changed_functions.append(function)
                 
     with open("repo_context.json", "r") as f:
@@ -40,22 +42,25 @@ def get_context(diff):
     
     for filepath, functions in context.items():
         for function_name in functions:
-            reverse_index[function_name] = filepath
+            if function_name not in reverse_index:
+                reverse_index[function_name] = []
+            reverse_index[function_name].append(filepath)
     
     function_sources = {}
     
     for function in changed_functions:
         if function not in reverse_index:
             continue
-        filepath = reverse_index[function]
-        start_line = context[filepath][function]['start_point']
-        end_line = context[filepath][function]['end_point']
+        for filepath in reverse_index[function]:
+            start_line = context[filepath][function]['start_point']
+            end_line = context[filepath][function]['end_point']
         
-        with open(filepath, "r") as f:
-            lines = f.readlines()
-        
-        source = "".join(lines[start_line:end_line])
-        function_sources[function] = {
+            with open(filepath, "r") as f:
+                file_lines = f.readlines()
+            
+            source = "".join(file_lines[start_line:end_line + 1])
+            key = f"{function}:{filepath}"
+            function_sources[key] = {
                 "file": filepath,
                 "calls": context[filepath][function]["calls"],
                 "start_point": start_line,
@@ -66,7 +71,24 @@ def get_context(diff):
     return function_sources
 
 def build_prompt(diff, context):
-    prompt = f"You are a professional code reviewer, and your task is to look at pull request diff and check if there is any problem. Here is the diff: {diff}. Here is the context: {context} I want you to return a structured list of problems: problem title, a brief description, where it occured, possible solution"
+    context_str = ""
+    for key, data in context.items():
+        context_str += f"\nFile: {data['file']}\n"
+        context_str += f"Function: {key.split(':')[0]}\n"
+        context_str += f"Calls: {', '.join(data['calls'])}\n"
+        context_str += f"Source:\n{data['source']}\n"
+        context_str += "---\n"
+    
+    prompt = f"""You are a professional code reviewer reviewing a pull request.
+
+Here is the diff:
+{diff}
+
+Here is the structural context of functions changed in this PR:
+{context_str}
+
+Return a structured list of problems found: problem title, brief description, where it occurred, possible solution."""
+    
     return prompt
 
 def call_llm(prompt):
