@@ -30,7 +30,7 @@ def get_context(diff):
         if (line.startswith('+') and not line.startswith('+++')) or \
         (line.startswith('-') and not line.startswith('---')):
             line = line.lstrip('+-').strip()
-            match = re.search(r'^\s*def\s+([a-zA-Z_]\w*)\s*\(', line)
+            match = re.search(r'^[+-]\s*def\s+([a-zA-Z_]\w*)\s*\(', line)
             if match:
                 function = match.group(1)
                 changed_functions.append(function)

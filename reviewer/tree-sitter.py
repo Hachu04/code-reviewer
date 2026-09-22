@@ -13,11 +13,13 @@ def find_functions(node, functions=None):
     if functions is None:
         functions = {}
     if node.type == 'function_definition':
-        name = node.child_by_field_name('name').text.decode('utf8')
-        functions[name] = {}
-        functions[name]["calls"] = find_calls_in_function(node, [])
-        functions[name]["start_point"] = node.start_point[0]
-        functions[name]["end_point"] = node.end_point[0]
+        name_node = node.child_by_field_name('name')
+        if name_node is not None:
+            name = name_node.text.decode('utf8')
+            functions[name] = {}
+            functions[name]["calls"] = find_calls_in_function(node, [])
+            functions[name]["start_point"] = node.start_point[0]
+            functions[name]["end_point"] = node.end_point[0]
     for child in node.children:
         find_functions(child, functions)
     return functions
