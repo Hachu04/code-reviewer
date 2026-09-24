@@ -38,20 +38,26 @@ def get_context(diff):
         context = json.load(f)
         
     reverse_context = build_reverse_context(context)
+    reverse_context_plain = {}
+    for called_qual, callers in reverse_context.items():
+        called_plain = called_qual.split(':')[0]
+        reverse_context_plain.setdefault(called_plain, []).extend(callers)
+    
     reverse_index = build_reverse_index(context)
             
     function_sources = {}
+    file_contents = {}
     
     for function in changed_functions:
         if function not in reverse_index:
             continue
         for filepath in reverse_index[function]:
-            data = fetch_function_source(function, filepath, context)
+            data = fetch_function_source(function, filepath, context, file_contents)
             if data is None:
                 continue
             
             data["file"] = filepath
-            data["called_by"] = reverse_context.get(function, [])
+            data["called_by"] = reverse_context_plain.get(function, [])
             
             seen = set()
             related = {}
@@ -72,7 +78,7 @@ def get_context(diff):
                         continue
                     seen.add(pair)
                     
-                    related_data = fetch_function_source(plain_name, related_filepath, context)
+                    related_data = fetch_function_source(plain_name, related_filepath, context, file_contents)
                     if related_data is not None:
                         related[f"{plain_name}:{related_filepath}"] = related_data
 
@@ -108,7 +114,10 @@ def build_reverse_context(repo_context):
                 reverse[called].append(qualified_name)
     return reverse
 
-def fetch_function_source(function, filepath, context):
+def fetch_function_source(function, filepath, context, file_contents=None):
+    if file_contents is None:
+        file_contents = {}
+        
     qualified_key = next(
         (k for k in context[filepath] if k.split(':')[0] == function),
         None
@@ -121,11 +130,12 @@ def fetch_function_source(function, filepath, context):
 
     if not os.path.exists(filepath):
         return None
-        
-    with open(filepath, "r", encoding="utf-8") as f:
-        file_lines = f.readlines()
     
-    source = "".join(file_lines[start_line:end_line + 1])
+    if filepath not in file_contents:
+        with open(filepath, "r", encoding="utf-8") as f:
+            file_contents[filepath] = f.readlines()
+    
+    source = "".join(file_contents[filepath][start_line:end_line + 1])
     
     return {
         "calls": context[filepath][qualified_key]["calls"],
