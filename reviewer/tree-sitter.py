@@ -1,12 +1,9 @@
-import builtins
 import glob
 import json
 import os
 
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
-
-BUILTINS = set(dir(builtins))
 
 PY_LANGUAGE = Language(tspython.language())
 
@@ -36,8 +33,7 @@ def find_calls_in_function(node, calls=None):
         name_node = node.child_by_field_name('function')
         if name_node is not None:
             name = name_node.text.decode('utf8')
-            if "'" not in name and '[' not in name and name not in BUILTINS:
-                calls.append(name)
+            calls.append(name)
     for child in node.children:
         find_calls_in_function(child, calls)
     return calls
@@ -82,3 +78,5 @@ def build_repo_context(root_path=""):
 context = build_repo_context()
 with open("repo_context.json", "w") as f:
     json.dump(context, f, indent=2)
+    
+print(context)

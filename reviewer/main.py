@@ -57,6 +57,7 @@ def get_context(diff):
             
     function_sources = {}
     file_contents = {}
+    seen_related = set()
     
     for function in changed_functions:
         if function not in reverse_index:
@@ -69,7 +70,6 @@ def get_context(diff):
             data["file"] = filepath
             data["called_by"] = reverse_context_plain.get(function, [])
             
-            seen = set()
             related = {}
             for related_name in data["calls"] + data["called_by"]:
                 if ':' in related_name:
@@ -84,9 +84,9 @@ def get_context(diff):
                     
                 for related_filepath in reverse_index[plain_name]:
                     pair = (plain_name, related_filepath)
-                    if pair in seen:
+                    if pair in seen_related:
                         continue
-                    seen.add(pair)
+                    seen_related.add(pair)
                     
                     related_data = fetch_function_source(plain_name, related_filepath, context, file_contents)
                     if related_data is not None:
@@ -120,9 +120,10 @@ def build_reverse_context(repo_context):
         for qualified_name, data in functions.items():
             for called in data["calls"]:
                 if called not in reverse:
-                    reverse[called] = []
-                reverse[called].append(qualified_name)
-    return reverse
+                    reverse[called] = set()
+                reverse[called].add(qualified_name)
+    
+    return {k: list(v) for k, v in reverse.items()}
 
 def fetch_function_source(function, filepath, context, file_contents=None):
     if file_contents is None:
@@ -185,7 +186,7 @@ def build_prompt(diff, context, structural_context):
     TOTAL_BUDGET = 16000
     STRUCTURAL_BUDGET = 2000
     CHANGED_BUDGET = 6000
-    RELATED_BUDGET = TOTAL_BUDGET - STRUCTURAL_BUDGET - CHANGED_BUDGET - len(diff)
+    RELATED_BUDGET =max(0, TOTAL_BUDGET - STRUCTURAL_BUDGET - CHANGED_BUDGET - len(diff))
 
     # section 1: structural overview (always include, truncate if needed)
     structural_str = structural_context[:STRUCTURAL_BUDGET]
@@ -216,7 +217,7 @@ def build_prompt(diff, context, structural_context):
             if len(related_str) + len(entry) > RELATED_BUDGET:
                 related_str += "\n[Related functions truncated]"
                 break
-        related_str += entry
+            related_str += entry
 
     prompt = f"""You are a professional code reviewer reviewing a pull request.
 
