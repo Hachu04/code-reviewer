@@ -53,16 +53,29 @@ def get_context(diff):
             data["file"] = filepath
             data["called_by"] = reverse_context.get(function, [])
             
+            seen = set()
             related = {}
             for related_name in data["calls"] + data["called_by"]:
-                plain_name = related_name.split('.')[0] if '.' in related_name else related_name
+                if ':' in related_name:
+                    plain_name = related_name.split(':')[0]
+                elif '.' in related_name:
+                    plain_name = related_name.split('.')[0]
+                else:
+                    plain_name = related_name
+                    
                 if plain_name not in reverse_index:
                     continue
+                    
                 for related_filepath in reverse_index[plain_name]:
+                    pair = (plain_name, related_filepath)
+                    if pair in seen:
+                        continue
+                    seen.add(pair)
+                    
                     related_data = fetch_function_source(plain_name, related_filepath, context)
                     if related_data is not None:
                         related[f"{plain_name}:{related_filepath}"] = related_data
-            
+
             data["related"] = related
             key = f"{function}:{filepath}"
             function_sources[key] = data
@@ -139,10 +152,13 @@ def build_prompt(diff, context):
         context_str += entry
         
         # only add related if budget allows
-        if data['related'] and len(context_str) < MAX_CONTEXT_CHARS // 2:
+        if data['related']:
             for related_key, related_data in data['related'].items():
-                context_str += f"  {related_key.split(':')[0]}:\n"
-                context_str += f"  {related_data['source']}\n"
+                entry = f"  {related_key.split(':')[0]}:\n  {related_data['source']}\n"
+                if len(context_str) + len(entry) > MAX_CONTEXT_CHARS:
+                    context_str += "\n[Related functions truncated]"
+                    break
+                context_str += entry
         
         context_str += "---\n"
     
