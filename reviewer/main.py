@@ -118,18 +118,28 @@ def fetch_function_source(function, filepath, context):
     }
 
 def build_prompt(diff, context):
+    MAX_CONTEXT_CHARS = 8000  # roughly 2000 tokens
+
     context_str = ""
     for key, data in context.items():
-        context_str += f"\nFile: {data['file']}\n"
-        context_str += f"Function: {key.split(':')[0]}\n"
-        context_str += f"Calls: {', '.join(data['calls'])}\n"
-        context_str += f"Called by: {', '.join(data['called_by'])}\n"
-        context_str += f"Source:\n{data['source']}\n"
-        if data['related']:
-            context_str += "Related functions:\n"
+        entry = f"\nFile: {data['file']}\n"
+        entry += f"Function: {key.split(':')[0]}\n"
+        entry += f"Calls: {', '.join(data['calls'])}\n"
+        entry += f"Called by: {', '.join(data['called_by'])}\n"
+        entry += f"Source:\n{data['source']}\n"
+        
+        if len(context_str) + len(entry) > MAX_CONTEXT_CHARS:
+            context_str += "\n[Context truncated due to size limit]"
+            break
+            
+        context_str += entry
+        
+        # only add related if budget allows
+        if data['related'] and len(context_str) < MAX_CONTEXT_CHARS // 2:
             for related_key, related_data in data['related'].items():
                 context_str += f"  {related_key.split(':')[0]}:\n"
                 context_str += f"  {related_data['source']}\n"
+        
         context_str += "---\n"
     
     prompt = f"""You are a professional code reviewer reviewing a pull request.
