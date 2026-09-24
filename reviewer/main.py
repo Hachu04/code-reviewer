@@ -212,6 +212,8 @@ Return a structured list of problems using this exact markdown format for each p
 
 Separate each problem with a blank line and '---'. Use markdown so it renders properly as a GitHub comment."""
     
+    print(prompt)
+    
     return prompt
 
 def call_llm(prompt):
