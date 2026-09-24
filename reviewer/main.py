@@ -5,6 +5,16 @@ import re
 import requests
 from openai import OpenAI
 
+DEPENDENCY_FILES = [
+    "requirements.txt",
+    "pyproject.toml", 
+    "Pipfile",
+    "package.json",
+    "go.mod",
+    "Cargo.toml",
+    "Gemfile",
+]
+
 repo_full = os.environ.get("GITHUB_REPOSITORY", "hachu04/code-reviewer")
 owner, repo = repo_full.split("/")
 pr_number = os.environ["PR_NUMBER"]
@@ -144,8 +154,20 @@ def fetch_function_source(function, filepath, context, file_contents=None):
         "source": source
     }
     
+def get_dependencies():
+    result = ""
+    for dep_file in DEPENDENCY_FILES:
+        if os.path.exists(dep_file):
+            with open(dep_file, "r") as f:
+                result += f"\n{dep_file}:\n{f.read().strip()}\n"
+    return result
+    
 def format_structural_context(repo_context):
     result = ""
+    
+    deps = get_dependencies()
+    if deps:
+        result += f"Dependencies:{deps}\n\n"
     
     for filepath, functions in repo_context.items():
         if functions is None:
@@ -160,43 +182,55 @@ def format_structural_context(repo_context):
     return result
 
 def build_prompt(diff, context, structural_context):
-    MAX_CONTEXT_CHARS = 8000  # roughly 2000 tokens
+    TOTAL_BUDGET = 16000
+    STRUCTURAL_BUDGET = 2000
+    CHANGED_BUDGET = 6000
+    RELATED_BUDGET = TOTAL_BUDGET - STRUCTURAL_BUDGET - CHANGED_BUDGET - len(diff)
 
-    context_str = ""
+    # section 1: structural overview (always include, truncate if needed)
+    structural_str = structural_context[:STRUCTURAL_BUDGET]
+    if len(structural_context) > STRUCTURAL_BUDGET:
+        structural_str += "\n[Structural overview truncated]"
+
+    # section 2: changed functions source (high priority)
+    changed_str = ""
     for key, data in context.items():
         entry = f"\nFile: {data['file']}\n"
         entry += f"Function: {key.split(':')[0]}\n"
         entry += f"Calls: {', '.join(data['calls'])}\n"
         entry += f"Called by: {', '.join(data['called_by'])}\n"
-        entry += f"Source:\n{data['source']}\n"
+        entry += f"Source:\n{data['source']}\n---\n"
         
-        if len(context_str) + len(entry) > MAX_CONTEXT_CHARS:
-            context_str += "\n[Context truncated due to size limit]"
+        if len(changed_str) + len(entry) > CHANGED_BUDGET:
+            changed_str += "\n[Changed functions truncated]"
             break
-            
-        context_str += entry
-        
-        # only add related if budget allows
-        if data['related']:
-            for related_key, related_data in data['related'].items():
-                entry = f"  {related_key.split(':')[0]}:\n  {related_data['source']}\n"
-                if len(context_str) + len(entry) > MAX_CONTEXT_CHARS:
-                    context_str += "\n[Related functions truncated]"
-                    break
-                context_str += entry
-        
-        context_str += "---\n"
-    
+        changed_str += entry
+
+    # section 3: related functions (lower priority, remaining budget)
+    related_str = ""
+    for key, data in context.items():
+        if not data['related']:
+            continue
+        for related_key, related_data in data['related'].items():
+            entry = f"{related_key.split(':')[0]}:\n{related_data['source']}\n"
+            if len(related_str) + len(entry) > RELATED_BUDGET:
+                related_str += "\n[Related functions truncated]"
+                break
+        related_str += entry
+
     prompt = f"""You are a professional code reviewer reviewing a pull request.
 
 Here is the overall repository structure:
-{structural_context}
+{structural_str}
 
 Here is the diff:
 {diff}
 
 Here is the structural context of functions changed in this PR:
-{context_str}
+{changed_str}
+
+Here are related functions for additional context:
+{related_str}
 
 Return a structured list of problems using this exact markdown format for each problem:
 
@@ -211,9 +245,7 @@ Return a structured list of problems using this exact markdown format for each p
 ---
 
 Separate each problem with a blank line and '---'. Use markdown so it renders properly as a GitHub comment."""
-    
     print(prompt)
-    
     return prompt
 
 def call_llm(prompt):
