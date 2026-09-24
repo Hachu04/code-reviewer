@@ -86,7 +86,7 @@ def get_context(diff):
             key = f"{function}:{filepath}"
             function_sources[key] = data
         
-    return function_sources
+    return function_sources, context
 
 def build_reverse_index(repo_context):
     reverse_index = {}
@@ -143,8 +143,23 @@ def fetch_function_source(function, filepath, context, file_contents=None):
         "end_point": end_line,
         "source": source
     }
+    
+def format_structural_context(repo_context):
+    result = ""
+    
+    for filepath, functions in repo_context.items():
+        if functions is None:
+            continue
+        result += f"\nFile: {filepath} ({len(functions)} functions)\n"
+        
+        for qualified_name, data in functions.items():
+            plain_name = qualified_name.split(':')[0]
+            calls = ', '.join(data['calls']) if data['calls'] else 'nothing'
+            result += f"  {plain_name} → calls: {calls}\n"
+    
+    return result
 
-def build_prompt(diff, context):
+def build_prompt(diff, context, structural_context):
     MAX_CONTEXT_CHARS = 8000  # roughly 2000 tokens
 
     context_str = ""
@@ -174,6 +189,9 @@ def build_prompt(diff, context):
     
     prompt = f"""You are a professional code reviewer reviewing a pull request.
 
+Here is the overall repository structure:
+{structural_context}
+
 Here is the diff:
 {diff}
 
@@ -181,7 +199,6 @@ Here is the structural context of functions changed in this PR:
 {context_str}
 
 Return a structured list of problems using this exact markdown format for each problem:
-
 
 ---
 
@@ -223,7 +240,8 @@ def post_comment(comment):
 
 if __name__ == "__main__":
     diff = get_pr_diff()
-    context = get_context(diff)
-    prompt = build_prompt(diff, context)
+    function_sources, repo_context = get_context(diff)
+    structural = format_structural_context(repo_context)
+    prompt = build_prompt(diff, function_sources, structural)
     comment = call_llm(prompt)
     post_comment(comment)
