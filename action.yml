@@ -1,0 +1,40 @@
+name: AI Code Reviewer
+description: Automatically reviews pull requests using LLM with structural code context
+
+inputs:
+  api_key:
+    description: API key for the LLM provider
+    required: true
+  base_url:
+    description: Base URL for OpenAI-compatible API endpoint
+    required: false
+    default: https://generativelanguage.googleapis.com/v1beta/openai/
+  model:
+    description: Model name to use for review
+    required: false
+    default: gemini-3.6-flash
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: pip install -r ${{ github.action_path }}/requirements.txt
+      shell: bash
+    
+    - name: Build repo context
+      run: python ${{ github.action_path }}/reviewer/tree-sitter.py
+      shell: bash
+    
+    - name: Run code review
+      run: python ${{ github.action_path }}/reviewer/main.py
+      shell: bash
+      env:
+        LLM_API_KEY: ${{ inputs.api_key }}
+        LLM_BASE_URL: ${{ inputs.base_url }}
+        LLM_MODEL: ${{ inputs.model }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ github.token }}

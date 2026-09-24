@@ -43,6 +43,10 @@ def build_file_context(filepath):
         source = f.read()
         
     tree = parser.parse(source)
+
+    if tree.root_node.has_error:
+        print(f"Warning: syntax errors found in {filepath}, skipping")
+        return {}
     
     return find_functions(tree.root_node)
 
@@ -53,9 +57,26 @@ def build_repo_context(root_path=""):
     
     for file in files:
         repo_context[file] = build_file_context(file)
-        
+    
+    # build set of all known function names
+    all_function_names = set()
+    for functions in repo_context.values():
+        if functions is None:
+            continue
+        for qualified_name in functions:
+            all_function_names.add(qualified_name.split(':')[0])
+    
+    # filter calls to only keep user-defined functions
+    for functions in repo_context.values():
+        if functions is None:
+            continue
+        for data in functions.values():
+            data['calls'] = [c for c in data['calls'] if c in all_function_names]
+    
     return repo_context
 
 context = build_repo_context()
 with open("repo_context.json", "w") as f:
     json.dump(context, f, indent=2)
+    
+print(context)
