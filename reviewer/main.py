@@ -159,8 +159,11 @@ def get_dependencies():
     result = ""
     for dep_file in DEPENDENCY_FILES:
         if os.path.exists(dep_file):
-            with open(dep_file, "r") as f:
-                result += f"\n{dep_file}:\n{f.read().strip()}\n"
+            try:
+                with open(dep_file, "r") as f:
+                    result += f"\n{dep_file}:\n{f.read().strip()}\n"
+            except OSError as e:
+                print(f"Warning: could not read {dep_file}: {e}")
     return result
     
 def format_structural_context(repo_context):
