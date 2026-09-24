@@ -73,6 +73,8 @@ def build_reverse_index(repo_context):
     reverse_index = {}
         
     for filepath, functions in repo_context.items():
+        if functions is None:
+            continue
         for qualified_name in functions:
             plain_name = qualified_name.split(':')[0]
             if plain_name not in reverse_index:
@@ -84,6 +86,8 @@ def build_reverse_index(repo_context):
 def build_reverse_context(repo_context):
     reverse = {}
     for functions in repo_context.values():
+        if functions is None:
+            continue
         for qualified_name, data in functions.items():
             for called in data["calls"]:
                 if called not in reverse:
