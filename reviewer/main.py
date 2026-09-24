@@ -29,22 +29,16 @@ def get_context(diff):
     for line in lines:
         if (line.startswith('+') and not line.startswith('+++')) or \
         (line.startswith('-') and not line.startswith('---')):
-            match = re.search(r'^[+-]\s*def\s+([a-zA-Z_]\w*)\s*\(', line)
+            match = re.search(r'^[+-]\s*(?:async\s+)?def\s+([a-zA-Z_]\w*)\s*\(', line)
             if match:
                 function = match.group(1)
                 changed_functions.append(function)
                 
     with open("repo_context.json", "r") as f:
         context = json.load(f)
-    
-    reverse_index = {}
-    
-    for filepath, functions in context.items():
-        for qualified_name in functions:
-            plain_name = qualified_name.split(':')[0]
-            if plain_name not in reverse_index:
-                reverse_index[plain_name] = []
-            reverse_index[plain_name].append(filepath)
+        
+    reverse_context = build_reverse_context(context)
+    reverse_index = build_reverse_index(context)
             
     function_sources = {}
     
@@ -52,32 +46,76 @@ def get_context(diff):
         if function not in reverse_index:
             continue
         for filepath in reverse_index[function]:
-            # find the qualified key that matches this plain name
-            qualified_key = next(
-                (k for k in context[filepath] if k.split(':')[0] == function),
-                None
-            )
-            if qualified_key is None:
+            data = fetch_function_source(function, filepath, context)
+            if data is None:
                 continue
-            start_line = context[filepath][qualified_key]['start_point']
-            end_line = context[filepath][qualified_key]['end_point']
-        
-            if not os.path.exists(filepath):
-                continue
-            with open(filepath, "r", encoding="utf-8") as f:
-                file_lines = f.readlines()
             
-            source = "".join(file_lines[start_line:end_line + 1])
+            data["file"] = filepath
+            data["called_by"] = reverse_context.get(function, [])
+            
+            related = {}
+            for related_name in data["calls"] + data["called_by"]:
+                plain_name = related_name.split('.')[0] if '.' in related_name else related_name
+                if plain_name not in reverse_index:
+                    continue
+                for related_filepath in reverse_index[plain_name]:
+                    related_data = fetch_function_source(plain_name, related_filepath, context)
+                    if related_data is not None:
+                        related[f"{plain_name}:{related_filepath}"] = related_data
+            
+            data["related"] = related
             key = f"{function}:{filepath}"
-            function_sources[key] = {
-                "file": filepath,
-                "calls": context[filepath][qualified_key]["calls"],
-                "start_point": start_line,
-                "end_point": end_line,
-                "source": source
-            }
+            function_sources[key] = data
         
     return function_sources
+
+def build_reverse_index(repo_context):
+    reverse_index = {}
+        
+    for filepath, functions in repo_context.items():
+        for qualified_name in functions:
+            plain_name = qualified_name.split(':')[0]
+            if plain_name not in reverse_index:
+                reverse_index[plain_name] = []
+            reverse_index[plain_name].append(filepath)
+            
+    return reverse_index
+
+def build_reverse_context(repo_context):
+    reverse = {}
+    for functions in repo_context.values():
+        for qualified_name, data in functions.items():
+            for called in data["calls"]:
+                if called not in reverse:
+                    reverse[called] = []
+                reverse[called].append(qualified_name)
+    return reverse
+
+def fetch_function_source(function, filepath, context):
+    qualified_key = next(
+        (k for k in context[filepath] if k.split(':')[0] == function),
+        None
+    )
+    if qualified_key is None:
+        return None
+    
+    start_line = context[filepath][qualified_key]['start_point']
+    end_line = context[filepath][qualified_key]['end_point']
+
+    if not os.path.exists(filepath):
+        return None
+        
+    with open(filepath, "r", encoding="utf-8") as f:
+        file_lines = f.readlines()
+    
+    source = "".join(file_lines[start_line:end_line + 1])
+    
+    return {
+        "calls": context[filepath][qualified_key]["calls"],
+        "start_point": start_line,
+        "end_point": end_line,
+        "source": source
+    }
 
 def build_prompt(diff, context):
     context_str = ""
@@ -85,7 +123,13 @@ def build_prompt(diff, context):
         context_str += f"\nFile: {data['file']}\n"
         context_str += f"Function: {key.split(':')[0]}\n"
         context_str += f"Calls: {', '.join(data['calls'])}\n"
+        context_str += f"Called by: {', '.join(data['called_by'])}\n"
         context_str += f"Source:\n{data['source']}\n"
+        if data['related']:
+            context_str += "Related functions:\n"
+            for related_key, related_data in data['related'].items():
+                context_str += f"  {related_key.split(':')[0]}:\n"
+                context_str += f"  {related_data['source']}\n"
         context_str += "---\n"
     
     prompt = f"""You are a professional code reviewer reviewing a pull request.

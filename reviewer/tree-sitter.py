@@ -43,8 +43,10 @@ def build_file_context(filepath):
         source = f.read()
         
     tree = parser.parse(source)
-    
-    return find_functions(tree.root_node)
+
+    if tree.root_node.has_error:
+        print(f"Warning: syntax errors found in {filepath}, skipping")
+        return {}
 
 def build_repo_context(root_path=""):
     files = glob.glob(os.path.join(root_path, "**/*.py"), recursive=True)
